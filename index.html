@@ -3,10 +3,12 @@
   LA VUELTA 2026 FANTASY — CORE SCAFFOLD v0.1
   Built from TDF 2026 Fantasy's proven, bug-fixed architecture.
   Players: Räikkönen, Esteban. Backend key: vuelta26 (shared server: fantasy.saceone.com)
-  Core tabs only: Pre-Vuelta, Stages, All Picks, Results, Leaderboard.
-  NOT yet included (follow-on work): Home dashboard, Intel tab (elevation profiles —
-  batched stage-by-stage build), Media Centre, Career/Archive, live-standings overlay
-  in All Picks (needs DNF tracker setup), Test-mode admin bar.
+  Tabs built: Home, Leaderboard, Pre-Vuelta, Stages, Intel, All Picks, Results.
+  Intel tab has all 21 official route profiles (via the image proxy); per-stage
+  written briefings and interactive elevation profiles are still to come — the
+  latter need GPX files, same as TDF.
+  NOT yet included (follow-on work): Media Centre, Career/Archive, live-standings
+  overlay in All Picks (needs DNF tracker setup), Test-mode admin bar.
 -->
 <html lang="en" translate="no">
 <head>
@@ -826,9 +828,9 @@ function medal(color, sz) {
   const num  = color === 'silver' ? '2' : '3';
   const tc   = color === 'silver' ? '#444' : '#5a2e00';
   return `<svg width="${sz}" height="${Math.round(sz*1.7)}" viewBox="0 0 24 40">
-    <rect x="9" y="0" width="6" height="4" fill="#002395"/>
-    <rect x="9" y="4" width="6" height="4" fill="#FFFFFF"/>
-    <rect x="9" y="8" width="6" height="4" fill="#ED2939"/>
+    <rect x="9" y="0" width="6" height="3" fill="#AA151B"/>
+    <rect x="9" y="3" width="6" height="6" fill="#F1BF00"/>
+    <rect x="9" y="9" width="6" height="3" fill="#AA151B"/>
     <line x1="12" y1="12" x2="12" y2="17" stroke="#888" stroke-width="1.5"/>
     <circle cx="12" cy="28" r="11" fill="${fill}" stroke="${stk}" stroke-width="1.5"/>
     <text x="12" y="32" text-anchor="middle" font-size="10" font-weight="700" fill="${tc}" font-family="sans-serif">${num}</text>
