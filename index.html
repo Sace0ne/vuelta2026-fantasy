@@ -316,7 +316,7 @@ input:disabled{opacity:.45;cursor:not-allowed}
 <body>
 
 <div class="nav">
-  <button class="nb active" onclick="showTab('home',this)">🏠 Home</button>
+  <button class="nb active" id="nav-home-btn" onclick="showTab('home',this)">🏠 Home</button>
   <button class="nb" onclick="showTab('leaderboard',this)">🏆 Leaderboard</button>
   <button class="nb" onclick="showTab('pretour',this)">🎽 Pre-Vuelta</button>
   <button class="nb" onclick="showTab('stages',this)">🚴 Stages</button>
@@ -352,7 +352,7 @@ input:disabled{opacity:.45;cursor:not-allowed}
 </div>
 
 <!-- LEADERBOARD -->
-<div id="tab-leaderboard" class="sec">
+<div id="tab-leaderboard" class="sec" style="display:none">
   <div class="sec-title">🏆 Leaderboard</div>
   <div class="lbcard" id="lb-rows"></div>
   <div class="card" style="margin-top:.75rem">
@@ -1210,6 +1210,37 @@ function renderLB() {
 
 // ─── HOME DASHBOARD ─────────────────────────────────────────────────────────
 
+// Fixed starfield — positions generated once and reused every frame.
+// Regenerating positions per-frame makes the stars jump around and read as rain,
+// so only the brightness oscillates (via a per-star phase offset).
+let _stars = null;
+function getStars(w, h) {
+  if (_stars && _stars.w === w && _stars.h === h) return _stars.list;
+  const list = [];
+  for (let i = 0; i < 55; i++) {
+    list.push({
+      x: Math.random() * w,
+      y: Math.random() * h * 0.32,
+      r: Math.random() * 1.2 + 0.35,
+      base: Math.random() * 0.35 + 0.2,
+      phase: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.012 + 0.006
+    });
+  }
+  _stars = {w, h, list};
+  return list;
+}
+function drawStarfield(ctx, w, h, frame) {
+  getStars(w, h).forEach(s => {
+    const a = s.base + Math.sin(frame * s.speed + s.phase) * 0.18;
+    if (a <= 0) return;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(244,225,190,${a})`;
+    ctx.fill();
+  });
+}
+
 const CURRENT_GT = 'vuelta2026';
 const CURRENT_GT_NAME = 'La Vuelta a España 2026';
 // Verified: official Monaco host program — first rider off 4:00pm CEST, 22 Aug 2026
@@ -1527,7 +1558,6 @@ function drawRider(ctx, x, y, col, scale) {
 function animateRiders(ctx, canvas) {
   let frame = 0;
   let pelotonX = -200;
-  let climberPos = 0;
   function draw() {
     // Use CSS dimensions for all positioning (DPI scaling handled by ctx.scale)
     const cW = canvas.offsetWidth || canvas.width;
@@ -1544,16 +1574,7 @@ function animateRiders(ctx, canvas) {
     ctx.arc(cW * 0.76, cH * 0.42, cW * 0.045, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(244,199,106,0.85)';
     ctx.fill();
-    for (let i = 0; i < 60; i++) {
-      const sx = Math.random() * cW;
-      const sy = Math.random() * cH * 0.32;
-      const sr = Math.random() * 1.3 + 0.3;
-      const salpha = Math.random() * 0.55 + 0.15;
-      ctx.beginPath();
-      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(244,225,190,${salpha})`;
-      ctx.fill();
-    }
+    drawStarfield(ctx, cW, cH, frame);
     // Road
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, cH - 55, cW, 55);
@@ -1629,20 +1650,18 @@ function animateRiders(ctx, canvas) {
     });
     ctx.globalAlpha = 1;
 
-    // Peloton
-    pelotonX += 2.5;
+    // Peloton — pace surges and eases slightly so the chase feels alive
+    pelotonX += 2.5 + Math.sin(frame * 0.008) * 0.6;
     if (pelotonX > cW + 200) pelotonX = -200;
     drawPeloton(ctx, pelotonX, cH - 56);
     // Seagull
     const seagullX = -200 + ((frame * 1.6) % (cW + 420));
     const seagullY = cH * 0.08;
     drawSeagullWithLogo(ctx, seagullX, seagullY, frame);
-    // Climber — ascends a foothill beside the Alhambra, not the towers themselves
-    climberPos += 0.003;
-    if (climberPos > 1) climberPos = 0;
-    const mx1 = cW * 0.46, my1 = cH - 55;
-    const mx2 = cW * 0.56, my2 = cH - 95;
-    drawRider(ctx, mx1 + (mx2-mx1)*climberPos, my1 + (my2-my1)*climberPos, '#E30613', 1);
+    // Lone breakaway rider — stays on the road just ahead of the peloton,
+    // with a small sway in the gap so the chase reads as a live contest.
+    const breakGap = 95 + Math.sin(frame * 0.0031) * 26;
+    drawRider(ctx, pelotonX + breakGap, cH - 56, '#E30613', 1);
     frame++;
     requestAnimationFrame(draw);
   }
@@ -1674,16 +1693,7 @@ function drawStars() {
   ctx.arc(cssW * 0.76, cssH * 0.42, cssW * 0.045, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(244,199,106,0.85)';
   ctx.fill();
-  for (let i = 0; i < 60; i++) {
-    const x = Math.random() * cssW;
-    const y = Math.random() * cssH * 0.32;
-    const r = Math.random() * 1.3 + 0.3;
-    const alpha = Math.random() * 0.55 + 0.15;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(244,225,190,${alpha})`;
-    ctx.fill();
-  }
+  drawStarfield(ctx, cssW, cssH, 0);
   // Draw road at bottom
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, cssH - 55, cssW, 55);
@@ -1794,6 +1804,7 @@ function applyDeadlines() { /* placeholder — extend when Intel/Home tabs are a
   await fetchGMT();
   await load();
   renderLB();
+  showTab('home', document.getElementById('nav-home-btn'));
 })();
 </script>
 </body>
