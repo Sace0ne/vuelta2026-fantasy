@@ -354,9 +354,6 @@ input:disabled{opacity:.45;cursor:not-allowed}
     <div class="who-label">👤 Who are you? Select your name to enter or view your own Picks.</div>
     <div class="who-tabs" id="who-tabs"></div>
   </div>
-  <div style="margin-bottom:1rem">
-    <div class="ptabs" id="st-tabs"></div>
-  </div>
   <div id="st-banner"></div>
   <div id="st-list"></div>
 </div>
@@ -492,6 +489,7 @@ function stageImgHtml(n) {
 
 
 const PRETOUR_DL = new Date('2026-08-22T10:00:00+01:00'); // locks with Stage 1
+const FINAL_CLASS_DT = new Date('2026-09-13T20:00:00+01:00'); // Switch to Final Classifications
 const STAGE_DL = {
   1:  new Date('2026-08-22T10:00:00+01:00'),
   2:  new Date('2026-08-23T10:00:00+01:00'),
@@ -581,6 +579,48 @@ function nowGMT() {
   return new Date(Date.now());
 }
 
+let _gmtOffset = null;        // ms offset between device time and BST
+let _gmtFetched = null;       // timestamp of last successful fetch
+let _gmtFetchFailed = false;  // true if ALL sources failed
+let _gmtSource = null;        // which source succeeded
+
+// Individual fetch attempts — each returns UTC ms or throws
+async function _tryFantasyServer() {
+  const t0 = Date.now();
+  const res = await fetch('https://fantasy.saceone.com/api/time', {
+    cache: 'no-cache', signal: AbortSignal.timeout(4000)
+  });
+  const t1 = Date.now();
+  const data = await res.json();
+  const latencyCompensation = Math.round((t1 - t0) / 2);
+  return data.unix + latencyCompensation;
+}
+
+async function _tryTimeapiIo() {
+  const t0 = Date.now();
+  const res = await fetch('https://timeapi.io/api/time/current/zone?timeZone=Europe%2FLondon', {
+    cache: 'no-cache', signal: AbortSignal.timeout(4000)
+  });
+  const t1 = Date.now();
+  const data = await res.json();
+  const latencyCompensation = Math.round((t1 - t0) / 2);
+  return new Date(data.dateTime + 'Z').getTime() - 3600000 + latencyCompensation;
+}
+
+async function _tryWorldTimeApi() {
+  const t0 = Date.now();
+  const res = await fetch('https://worldtimeapi.org/api/timezone/Europe/London', {
+    cache: 'no-cache', signal: AbortSignal.timeout(4000)
+  });
+  const t1 = Date.now();
+  const data = await res.json();
+  const latencyCompensation = Math.round((t1 - t0) / 2);
+  const bstDatetime = data.datetime;
+  const utcMs = new Date(bstDatetime).getTime();
+  const offsetHours = 1;
+  return utcMs + (offsetHours * 3600000) + latencyCompensation;
+}
+
 async function fetchGMT() {
   const sources = [
     { fn: _tryFantasyServer, name: 'fantasy.saceone.com' },
@@ -626,6 +666,42 @@ function stripDiacritics(s) {
 
 function nameParts(s) {
   return stripDiacritics(s).replace(/\./g,'').split(/\s+/).filter(Boolean);
+}
+
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const dp = Array.from({length: b.length + 1}, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = i;
+    for (let j = 1; j <= b.length; j++) {
+      const val = a[i-1] === b[j-1] ? dp[j-1] : 1 + Math.min(dp[j-1], dp[j], prev);
+      dp[j-1] = prev;
+      prev = val;
+    }
+    dp[b.length] = prev;
+  }
+  return dp[b.length];
+}
+
+function fuzzyMatch(a, b) {
+  if (a === b) return true;
+  const dist = levenshtein(a, b);
+  if (dist === 1) return true;
+  if (dist === 2 && a.length > 7 && b.length > 7) return true;
+  return false;
+}
+
+function isInitialOf(initial, fullName) {
+  return initial.length === 1 && fullName.startsWith(initial);
+}
+
+function partMatch(a, b) {
+  if (a === b) return true;
+  if (isInitialOf(a, b) || isInitialOf(b, a)) return true;
+  if (a.length > 2 && b.length > 2 && fuzzyMatch(a, b)) return true;
+  return false;
 }
 
 function namesMatch(entry, result) {
@@ -874,8 +950,6 @@ function renderST() {
   const me = S.myPlayer, viewing = S.stPlayer, isOwn = me === viewing;
   document.getElementById('who-tabs').innerHTML = PLAYERS.map(p =>
     `<button class="ptab ${p===me?'active':''}" onclick="setMyPlayer('${p}')">${p}</button>`).join('');
-  document.getElementById('st-tabs').innerHTML = PLAYERS.map(p =>
-    `<button class="ptab ${p===viewing?'active':''}" onclick="setSTPlayer('${p}')">${p}</button>`).join('');
   if (!me) {
     document.getElementById('st-banner').innerHTML = '<div class="viewing-banner" style="text-align:center;color:#666">Select who you are above to enter your Picks</div>';
     document.getElementById('st-list').innerHTML = '';
@@ -954,7 +1028,6 @@ function renderST() {
 
 function setMyPlayer(p) { S.myPlayer = p; S.stPlayer = p; save(); renderST(); initSpoiler(); }
 
-function setSTPlayer(p) { S.stPlayer = p; save(); renderST(); }
 
 function togJk(player, key) {
   if (stLocked(parseInt(key.replace('s','')))) { toast('Deadline passed — cannot change Joker', '#c05050'); return; }
@@ -1076,6 +1149,16 @@ function saveResults() {
 function updRes(key, val) { S.results[key] = val; save(); }
 
 function updResStage(key, val) { S.results.stages[key] = val; save(); }
+
+function tieSort(a, b) {
+  const sa = S.scores[a] || {}, sb = S.scores[b] || {};
+  if ((sb.total||0) !== (sa.total||0)) return (sb.total||0) - (sa.total||0);
+  if ((sb.mjCorrect||0) !== (sa.mjCorrect||0)) return (sb.mjCorrect||0) - (sa.mjCorrect||0);
+  if ((sb.gcPodiumCorrect||0) !== (sa.gcPodiumCorrect||0)) return (sb.gcPodiumCorrect||0) - (sa.gcPodiumCorrect||0);
+  if ((sb.jerseyCorrect||0) !== (sa.jerseyCorrect||0)) return (sb.jerseyCorrect||0) - (sa.jerseyCorrect||0);
+  if ((sb.stageWinsCorrect||0) !== (sa.stageWinsCorrect||0)) return (sb.stageWinsCorrect||0) - (sa.stageWinsCorrect||0);
+  return 0; // true tie
+}
 
 function renderLB() {
   calcScores();
