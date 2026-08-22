@@ -326,6 +326,9 @@ input:disabled{opacity:.45;cursor:not-allowed}
   <button class="nb" onclick="showTab('picks',this)">👁️ All Picks</button>
   <button class="nb" onclick="showTab('results',this)">✏️ Results</button>
 </div>
+<div style="background:#0a0a0a;border-bottom:1px solid #1a1a1a;padding:4px 12px;font-size:11px;text-align:right" id="gmt-indicator">
+  🕐 <span style="color:#555">Syncing GMT clock…</span>
+</div>
 
 <div id="toast"></div>
 
@@ -1344,6 +1347,16 @@ function updST(player, key, val) {
   S.stages[player][key] = val; save();
 }
 
+// Refresh GMT every 5 minutes
+function startGMTSync() {
+  setInterval(fetchGMT, 5 * 60 * 1000);
+  setInterval(updateGMTIndicator, 10 * 1000); // update display every 10s
+  // Re-sync immediately when tab becomes visible — fixes drift in background tabs
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) fetchGMT();
+  });
+}
+
 function updateGMTIndicator() {
   const el = document.getElementById('gmt-indicator');
   if (!el) return;
@@ -2113,6 +2126,7 @@ function applyDeadlines() { /* placeholder — extend when Intel/Home tabs are a
 // ─── BOOT ───────────────────────────────────────────────────────────────────
 (async function boot() {
   await fetchGMT();
+  startGMTSync();
   await load();
   renderLB();
   showTab('home', document.getElementById('nav-home-btn'));
