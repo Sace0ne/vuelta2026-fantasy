@@ -360,6 +360,7 @@ input:disabled{opacity:.45;cursor:not-allowed}
 <!-- LEADERBOARD -->
 <div id="tab-leaderboard" class="sec" style="display:none">
   <div class="sec-title">🏆 Leaderboard</div>
+  <div id="lb-podium"></div>
   <div class="lbcard" id="lb-rows"></div>
   <div class="card" style="margin-top:.75rem">
     <div class="card-title">📊 Points Breakdown</div>
@@ -726,7 +727,7 @@ function fieldIcon(f, sz) {
 
 
 const STAGES = [
-  {n:1,  d:'22 Aug', r:'Monaco → Monaco',                              dist:'9.6 km',   t:'tt',      l:'Individual TT'},
+  {n:1,  d:'22 Aug', r:'Monaco → Monaco',                              dist:'9.4 km',   t:'tt',      l:'Individual TT'},
   {n:2,  d:'23 Aug', r:'Monaco → Manosque',                            dist:'215.2 km', t:'hilly',   l:'Hilly'},
   {n:3,  d:'24 Aug', r:'Gruissan → Font Romeu',                        dist:'166.7 km', t:'mountain',l:'Mountain ⛰'},
   {n:4,  d:'25 Aug', r:'Andorra la Vella → Andorra la Vella',          dist:'104.9 km', t:'mountain',l:'Mountain ⛰'},
@@ -1154,6 +1155,22 @@ async function save() {
   }
 }
 
+// NOTE ON SCORING — read this before concluding scoring is broken.
+// calcScores() is called from exactly two places: saveResults() (admin clicks
+// "Save Results") and renderLB() (Leaderboard tab renders). It is deliberately
+// NOT called by the scheduled tasks, which POST straight to the API and never
+// execute this JavaScript.
+//
+// Consequence: the stored `scores` object in the API state can sit at zero even
+// when picks and results are fully recorded. That is expected, not a bug — the
+// Leaderboard recomputes from `stages`/`results`/`pretour` every time it renders,
+// so what players actually see is always correct and current.
+//
+// Do NOT duplicate this scoring logic in a scheduled task to "fix" the stored
+// zeros. Two implementations of the same rules will silently drift apart and
+// produce a leaderboard that disagrees with itself. Deriving scores on render
+// also means they self-heal: restore the underlying picks/results and correct
+// scores return automatically, with no separate repair step.
 function calcScores() {
   PLAYERS.forEach(p => {
     let tot = 0; const bd = [];
@@ -1482,10 +1499,60 @@ function tieSort(a, b) {
   return 0; // true tie
 }
 
+// Podium — always renders three positions in the classic cycling arrangement
+// (2nd | 1st | 3rd), with unoccupied steps shown empty rather than omitted.
+function renderPodium(sorted) {
+  const box = document.getElementById('lb-podium');
+  if (!box) return;
+
+  const ICON   = ['\u{1F3C6}', '\u{1F948}', '\u{1F949}'];
+  const ACCENT = ['#E30613', '#9a9a9a', '#a9713b'];
+  const HEIGHT = [128, 92, 68];
+
+  // Joint positions: equal scores share a rank, so ties sit on the same step.
+  let rank = 0;
+  const ranks = sorted.map((p, i) => {
+    if (i > 0 && (S.scores[p]?.total || 0) !== (S.scores[sorted[i-1]]?.total || 0)) rank = i;
+    return rank;
+  });
+
+  // Who stands on each of the three steps (null = unoccupied).
+  const step = [null, null, null];
+  sorted.forEach((p, i) => { if (ranks[i] < 3 && !step[ranks[i]]) step[ranks[i]] = p; });
+  // A tie for a step puts both names on it.
+  const shared = [[], [], []];
+  sorted.forEach((p, i) => { if (ranks[i] < 3) shared[ranks[i]].push(p); });
+
+  const column = pos => {
+    const names = shared[pos];
+    const accent = ACCENT[pos];
+    const occupied = names.length > 0;
+    const pts = occupied ? (S.scores[names[0]]?.total || 0) : null;
+    const label = occupied ? names.join(' & ') : '—';
+
+    return `<div style="flex:1;max-width:150px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0">
+      <div style="font-size:${pos === 0 ? '26px' : '20px'};line-height:1;margin-bottom:6px;opacity:${occupied ? 1 : .25}">${ICON[pos]}</div>
+      <div style="font-size:${pos === 0 ? '14px' : '12.5px'};font-weight:700;color:${occupied ? '#e8e8e8' : '#4a4a4a'};text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${label}</div>
+      <div style="font-size:${pos === 0 ? '19px' : '16px'};font-weight:700;color:${occupied ? (pos === 0 ? '#E30613' : '#aaa') : '#3a3a3a'};margin-top:3px">${occupied ? pts : ''}</div>
+      <div style="font-size:9px;color:${occupied ? '#666' : '#333'};letter-spacing:1px;margin-bottom:7px">${occupied ? 'POINTS' : 'VACANT'}</div>
+      <div style="width:100%;height:${HEIGHT[pos]}px;background:${occupied ? '#1c1c1c' : '#141414'};border:1px solid ${accent}${occupied ? '55' : '22'};border-top:3px solid ${occupied ? accent : accent + '44'};border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center">
+        <span style="font-size:${pos === 0 ? '40px' : '32px'};font-weight:800;color:${accent};opacity:${occupied ? .22 : .09};line-height:1">${pos + 1}</span>
+      </div>
+    </div>`;
+  };
+
+  // Classic podium order: 2nd on the left, 1st in the centre, 3rd on the right.
+  box.innerHTML = `<div style="display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:1.25rem .5rem 0">
+      ${column(1)}${column(0)}${column(2)}
+    </div>
+    <div style="height:6px;background:#242424;border-radius:3px;margin:0 .5rem 1rem"></div>`;
+}
+
 function renderLB() {
   calcScores();
   renderLiveStandings();
   const sorted = [...PLAYERS].sort(tieSort);
+  renderPodium(sorted);
   const pc = ['p1','p2','p3','p4'], pl = ['1st','2nd','3rd','4th'];
   document.getElementById('lb-rows').innerHTML = sorted.map((p,i) => `
     <div class="lbrow">
