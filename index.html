@@ -322,8 +322,8 @@ input:disabled{opacity:.45;cursor:not-allowed}
   <button class="nb" onclick="showTab('leaderboard',this)">🏆 Leaderboard</button>
   <button class="nb" onclick="showTab('pretour',this)">🎽 Pre-Vuelta</button>
   <button class="nb" onclick="showTab('stages',this)">🚴 Stages</button>
+  <button class="nb" onclick="showTab('picks',this)">👁️ All Picks</button><button class="nb spoiler-btn" id="spoiler-btn" onclick="toggleSpoiler(this)" title="Spoiler Shield — click to activate">🛡️</button>
   <button class="nb" onclick="showTab('intel',this)">📡 Intel</button>
-  <button class="nb" onclick="showTab('picks',this)">👁️ All Picks</button>
   <button class="nb" onclick="showTab('results',this)">✏️ Results</button>
 </div>
 <div style="background:#0a0a0a;border-bottom:1px solid #1a1a1a;padding:4px 12px;font-size:11px;text-align:right" id="gmt-indicator">
@@ -1398,10 +1398,80 @@ function updateGMTIndicator() {
   }
 }
 
-// Spoiler Shield — deferred enhancement, not yet built for La Vuelta.
-// Stubbed so calling code doesn't break; shield is simply always off.
-function initSpoiler() { /* deferred — spoiler shield feature not yet built */ }
-function isSpoilerBlocked(stageNum) { return false; }
+// ─── SPOILER SHIELD ─────────────────────────────────────────────────────────
+// Per-player, stored in localStorage (not the shared game state — it's a personal
+// viewing preference, and putting it in `S` would sync it to the other player).
+// Activating hides results for stages whose deadline falls AFTER activation, so
+// stages already watched stay visible while upcoming ones are masked.
+const SPOILER_KEY_PREFIX = 'vuelta26-spoiler-';
+let spoilerActivatedAt = null;
+
+function spoilerKeyForPlayer(player) {
+  return SPOILER_KEY_PREFIX + (player || 'unknown').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function loadSpoilerState(player) {
+  try {
+    const d = localStorage.getItem(spoilerKeyForPlayer(player));
+    return d ? JSON.parse(d) : null;
+  } catch(e) { return null; }
+}
+
+function saveSpoilerState(player, activatedAt) {
+  try {
+    const key = spoilerKeyForPlayer(player);
+    if (activatedAt === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify({activatedAt}));
+  } catch(e) {}
+}
+
+function initSpoiler() {
+  const player = S.myPlayer || null;
+  const btn = document.getElementById('spoiler-btn');
+  if (!player) {
+    spoilerActivatedAt = null;
+    if (btn) { btn.classList.remove('shield-on'); btn.title = 'Select a player in Stages to use the shield'; }
+    return;
+  }
+  const saved = loadSpoilerState(player);
+  spoilerActivatedAt = (saved && saved.activatedAt) ? saved.activatedAt : null;
+  if (btn) {
+    btn.classList.toggle('shield-on', spoilerActivatedAt !== null);
+    btn.title = spoilerActivatedAt !== null
+      ? 'Spoiler Shield ON — click to deactivate'
+      : 'Spoiler Shield — click to activate';
+  }
+}
+
+function toggleSpoiler(btn) {
+  const player = S.myPlayer;
+  if (!player) {
+    toast('Select who you are in the Stages tab first', '#c05050');
+    return;
+  }
+  if (spoilerActivatedAt === null) {
+    spoilerActivatedAt = new Date().getTime();
+    saveSpoilerState(player, spoilerActivatedAt);
+    btn.classList.add('shield-on');
+    btn.title = 'Spoiler Shield ON — click to deactivate';
+    toast('\u{1F6E1}\uFE0F ' + player + "'s Shield ON", '#c05050');
+  } else {
+    spoilerActivatedAt = null;
+    saveSpoilerState(player, null);
+    btn.classList.remove('shield-on');
+    btn.title = 'Spoiler Shield — click to activate';
+    toast('\u{1F6E1}\uFE0F ' + player + "'s Shield OFF", '#3daa68');
+  }
+  if (document.getElementById('tab-picks').style.display !== 'none') renderPicks();
+}
+
+function isSpoilerBlocked(stageNum) {
+  if (spoilerActivatedAt === null) return false;
+  const dl = STAGE_DL[stageNum];
+  if (!dl) return false;
+  // Only block stages whose deadline is after activation — past results stay visible.
+  return dl.getTime() > spoilerActivatedAt;
+}
 
 // Live race standings overlay — deferred, needs DNF tracker + live-standings
 // DOM element not yet present in this core scaffold.
