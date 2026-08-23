@@ -264,7 +264,7 @@ input:disabled{opacity:.45;cursor:not-allowed}
 ═══════════════════════════════════════════════════════ */
 .spoiler-btn{padding:12px 6px 12px 2px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:transparent;white-space:nowrap;flex:0 0 auto;text-align:center;border-bottom:2px solid transparent;margin-bottom:-2px;color:#666;transition:all .2s;display:flex;align-items:center;justify-content:center}
 .spoiler-btn:hover{color:#E30613}
-.spoiler-btn.shield-on{color:#c05050;border-bottom-color:#c05050}
+.spoiler-btn.shield-on{color:#fff !important;background:#c05050 !important;border-bottom-color:#c05050 !important;border-radius:6px;box-shadow:0 0 0 2px #c0505055;transform:scale(1.08)}
 .spoiler-blocked{background:#1a1010;border:0.5px solid #3a1a1a;border-radius:6px;padding:7px 12px;font-size:12px;color:#c05050;text-align:center;font-weight:500}
 
 /* ═══════════════════════════════════════════════════════
@@ -649,6 +649,7 @@ input:disabled{opacity:.45;cursor:not-allowed}
 <!-- ALL PICKS -->
 <div id="tab-picks" class="sec" style="display:none">
   <div class="sec-title">👁️ All picks — side by side</div>
+  <div id="spoiler-banner" style="display:none"></div>
   <div class="dl">🔒 Pre-Vuelta hidden until 22 Aug 10:00 BST · Stage Picks revealed after each deadline</div>
   <div class="card" style="padding:0;overflow:hidden">
     <div style="padding:.75rem 1.1rem .5rem;font-size:11px;color:#E30613;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:0.5px solid #2a2a2a">Pre-Vuelta picks</div>
@@ -1478,7 +1479,27 @@ function isSpoilerBlocked(stageNum) {
 function renderLiveStandings() { /* deferred — needs live-standings infrastructure */ }
 
 
+// Persistent on-screen confirmation that the shield is active. The button alone
+// is a weak signal (its content is a colour emoji, which CSS `color` can't
+// restyle), and the toast disappears after 2.5s — so state is shown here too.
+function renderSpoilerBanner() {
+  const el = document.getElementById('spoiler-banner');
+  if (!el) return;
+  if (spoilerActivatedAt === null) { el.style.display = 'none'; return; }
+  const when = new Date(spoilerActivatedAt).toLocaleString('en-GB', {
+    timeZone: 'Europe/London', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  el.style.display = 'block';
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:#1a1010;border:1px solid #c0505066;border-radius:8px;padding:9px 12px;margin-bottom:.75rem;font-size:12.5px;color:#c05050">
+    <span style="font-size:15px">\u{1F6E1}\uFE0F</span>
+    <span><strong>Spoiler Shield ON</strong> for ${S.myPlayer || ''} — results from stages after ${when} are hidden.</span>
+    <button onclick="toggleSpoiler(document.getElementById('spoiler-btn'))" style="margin-left:auto;flex-shrink:0;background:#c05050;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Turn off</button>
+  </div>`;
+}
+
 function renderPicks() {
+  renderSpoilerBanner();
   const rev = ptRevealed(); const r = S.results;
   const cw = Math.floor(52 / PLAYERS.length);
   let ph = `<thead><tr><th style="width:34%">Category</th>${PLAYERS.map(p=>`<th style="width:${cw}%">${p}</th>`).join('')}</tr></thead><tbody>`;
