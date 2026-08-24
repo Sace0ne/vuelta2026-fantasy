@@ -393,11 +393,13 @@ input:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- INTEL -->
 <div id="tab-intel" class="sec" style="display:none">
-  <div class="sec-title">📡 Intel</div>
-  <div class="dl">🗺️ Route profiles, stage intel and the official startlist</div>
-  <div class="ptabs" style="margin-bottom:1rem">
-    <button class="ptab active" id="intel-f-stages" onclick="setIntelFilter('stages',this)">🚴 Stages</button>
-    <button class="ptab" id="intel-f-teams" onclick="setIntelFilter('teams',this)">👥 Teams</button>
+  <div style="background:linear-gradient(180deg,#3a1f4d 0%,#7a3350 35%,#c9622f 65%,#e8a23a 100%);border-radius:12px;padding:1rem 1.1rem .9rem;margin-bottom:1rem">
+    <div class="sec-title" style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);margin-bottom:.6rem">📡 Intel</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.5);margin-bottom:.9rem">🗺️ Route profiles, stage intel and the official startlist</div>
+    <div class="ptabs" style="margin-bottom:0">
+      <button class="ptab active" id="intel-f-stages" onclick="setIntelFilter('stages',this)">🚴 Stages</button>
+      <button class="ptab" id="intel-f-teams" onclick="setIntelFilter('teams',this)">👥 Teams</button>
+    </div>
   </div>
   <div id="intel-teams-wrap" style="display:none">
     <div id="teams-view"></div>
@@ -1649,9 +1651,9 @@ function renderPodium(sorted) {
 
     return `<div style="flex:1;max-width:150px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0">
       <div style="font-size:${pos === 0 ? '26px' : '20px'};line-height:1;margin-bottom:6px;opacity:${occupied ? 1 : .25}">${ICON[pos]}</div>
-      <div style="font-size:${pos === 0 ? '14px' : '12.5px'};font-weight:700;color:${occupied ? '#e8e8e8' : '#4a4a4a'};text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${label}</div>
-      <div style="font-size:${pos === 0 ? '19px' : '16px'};font-weight:700;color:${occupied ? (pos === 0 ? '#E30613' : '#aaa') : '#3a3a3a'};margin-top:3px">${occupied ? pts : ''}</div>
-      <div style="font-size:9px;color:${occupied ? '#666' : '#333'};letter-spacing:1px;margin-bottom:7px">${occupied ? 'POINTS' : 'VACANT'}</div>
+      <div style="font-size:${pos === 0 ? '14px' : '12.5px'};font-weight:700;color:${occupied ? '#ffffff' : 'rgba(255,255,255,.32)'};text-shadow:0 1px 3px rgba(0,0,0,.55);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${label}</div>
+      <div style="font-size:${pos === 0 ? '19px' : '16px'};font-weight:700;color:${occupied ? '#ffffff' : 'rgba(255,255,255,.25)'};text-shadow:0 1px 3px rgba(0,0,0,.55);margin-top:3px">${occupied ? pts : ''}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,${occupied ? '.72' : '.35'});text-shadow:0 1px 3px rgba(0,0,0,.55);letter-spacing:1px;margin-bottom:7px">${occupied ? 'POINTS' : 'VACANT'}</div>
       <div style="width:100%;height:${HEIGHT[pos]}px;background:${occupied ? '#1c1c1c' : '#141414'};border:1px solid ${accent}${occupied ? '55' : '22'};border-top:3px solid ${occupied ? accent : accent + '44'};border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center">
         <span style="font-size:${pos === 0 ? '40px' : '32px'};font-weight:800;color:${accent};opacity:${occupied ? .22 : .09};line-height:1">${pos + 1}</span>
       </div>
@@ -1659,10 +1661,12 @@ function renderPodium(sorted) {
   };
 
   // Classic podium order: 2nd on the left, 1st in the centre, 3rd on the right.
-  box.innerHTML = `<div style="display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:1.25rem .5rem 0">
-      ${column(1)}${column(0)}${column(2)}
+  box.innerHTML = `<div style="background:linear-gradient(180deg,#3a1f4d 0%,#7a3350 35%,#c9622f 65%,#e8a23a 100%);border-radius:12px 12px 0 0;padding:1.25rem .5rem 0;overflow:hidden">
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:8px">
+        ${column(1)}${column(0)}${column(2)}
+      </div>
     </div>
-    <div style="height:6px;background:#242424;border-radius:3px;margin:0 .5rem 1rem"></div>`;
+    <div style="height:6px;background:#2a1a12;border-radius:0 0 3px 3px;margin:0 0 1rem"></div>`;
 }
 
 function renderLB() {
