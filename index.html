@@ -1560,7 +1560,7 @@ function renderPicks() {
     PLAYERS.forEach(p => {
       const pick = (S.stages[p]||{})[key] || ''; const isJk = S.jokers[p] === key; const isDNS = pick === 'DNS';
       if (!past) { sh += `<td class="lk">🔒</td>`; }
-      else if (isDNS) { sh += `<td class="dns-cell">DNS</td>`; }
+      else if (isDNS || !pick) { sh += `<td class="dns-cell">DNS</td>`; }
       else if (isSpoilerBlocked(st.n)) { sh += `<td class="spoiler-blocked">🛡️</td>`; }
       else { const ok = res && namesMatch(pick, res) && pick; const pts = ok ? (isJk?2:1) : 0; sh += `<td class="${ok?'win-pick':isJk&&pick?'pc jk':'pc'}">${pick||'—'}${isJk&&pick?' 🃏':''}${ok?`<span class="pp">+${pts}</span>`:''}</td>`; }
     });
