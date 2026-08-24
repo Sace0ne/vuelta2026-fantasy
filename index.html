@@ -313,6 +313,15 @@ input:disabled{opacity:.45;cursor:not-allowed}
 .media-mark-btn{display:inline-flex;align-items:center;gap:6px;background:#1a2a1a;border:0.5px solid #2a4a2a;border-radius:6px;padding:6px 14px;font-size:12px;color:#3daa68;cursor:pointer;margin-top:.75rem;margin-right:8px}
 .media-mark-btn:hover{border-color:#3daa68}
 
+
+/* Cell colours must outrank `.sbs td` (0,1,1); a bare class is (0,1,0) and loses.
+   Scoping to `.sbs td.X` gives (0,2,1) so the intended colour applies. */
+.sbs td.dns-cell{color:#c05050}
+.sbs td.spoiler-blocked{color:#c05050}
+.sbs td.ok{color:#3daa68}
+.sbs td.jk{color:#cc44ff}
+.sbs td.pc{color:#ddd}
+.sbs td.lk{color:#555}
 </style>
 </head>
 <body>
