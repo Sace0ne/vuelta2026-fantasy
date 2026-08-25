@@ -2589,8 +2589,12 @@ async function loadWeather() {
   try {
     const msgs = await apiGet('/api/messages');
     if (Array.isArray(msgs)) {
-      _weatherMsgs = msgs.filter(m =>
-        m.category === 'weather' || String(m.id || '').startsWith('vuelta-weather-'));
+      // Filter on the id prefix ALONE. `category` is not race-scoped — a TDF
+      // message carrying category:'weather' would match too. Using the same
+      // predicate that weatherStageOf() parses means anything that loads here
+      // is guaranteed to be displayable, rather than loading and then silently
+      // failing to appear under any stage.
+      _weatherMsgs = msgs.filter(m => weatherStageOf(m) !== null);
     }
   } catch(e) { console.warn('Weather load failed:', e.message); }
   return _weatherMsgs;
