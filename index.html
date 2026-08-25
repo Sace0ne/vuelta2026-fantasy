@@ -2601,7 +2601,7 @@ async function loadWeather() {
 }
 
 function weatherStageOf(m) {
-  const mm = String(m.id || '').match(/vuelta-weather-s(\d+)-/);
+  const mm = String(m.id || '').match(/^vuelta-weather-s(\d+)-/);
   return mm ? parseInt(mm[1], 10) : null;
 }
 
@@ -2625,19 +2625,21 @@ async function renderWeather() {
     feed.innerHTML = `<div style="color:#666;font-size:13px;padding:14px">No forecast posted for Stage ${weatherStage} yet.</div>`;
     return;
   }
-  // Newest first — the task may post both a morning update and an evening preview
-  feed.innerHTML = msgs.slice().sort((a,b) => String(b.ts||'').localeCompare(String(a.ts||''))).map(m => {
-    const d = m.ts ? new Date(m.ts) : null;
-    const when = d ? d.toLocaleString('en-GB', {timeZone:'Europe/London', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false}) : '';
-    const mode = String(m.id||'').includes('-evening-') ? 'Evening preview' : 'Morning update';
-    return `<div class="card" style="border-color:#2a2a2a;background:#161616;margin-bottom:10px">
+  // The message store is append-only, so a re-run adds a fresh forecast rather
+  // than overwriting. Show only the newest — a later run means better data.
+  const sorted = msgs.slice().sort((a,b) => String(b.ts||'').localeCompare(String(a.ts||'')));
+  const m = sorted[0];
+  const superseded = sorted.length - 1;
+  const d = m.ts ? new Date(m.ts) : null;
+  const when = d ? d.toLocaleString('en-GB', {timeZone:'Europe/London', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+  feed.innerHTML = `<div class="card" style="border-color:#2a2a2a;background:#161616;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #2a2a2a">
-        <span style="font-size:11px;font-weight:700;color:#5b8dd9;letter-spacing:.3px">🌤️ ${mode}</span>
+        <span style="font-size:11px;font-weight:700;color:#5b8dd9;letter-spacing:.3px">🌤️ Forecast</span>
         <span style="font-size:11px;color:#666">${when}</span>
       </div>
       <div style="font-size:13.5px;color:#c8c8c8;white-space:pre-line;line-height:1.72">${m.text || ''}</div>
-    </div>`;
-  }).join('');
+    </div>
+    ${superseded ? `<div style="font-size:10.5px;color:#555;padding:2px 4px 0;font-style:italic">Showing the latest of ${sorted.length} forecasts for this stage — earlier ones superseded.</div>` : ''}`;
 }
 
 function setWeatherStage(n, btn) {
