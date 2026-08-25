@@ -407,8 +407,37 @@ input:disabled{opacity:.45;cursor:not-allowed}
     <div style="font-size:13px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.5);margin-bottom:.9rem">🗺️ Route profiles, stage intel and the official startlist</div>
     <div class="ptabs" style="margin-bottom:0">
       <button class="ptab active" id="intel-f-stages" onclick="setIntelFilter('stages',this)">🚴 Stages</button>
+      <button class="ptab" id="intel-f-weather" onclick="setIntelFilter('weather',this)">🌤️ Weather</button>
       <button class="ptab" id="intel-f-teams" onclick="setIntelFilter('teams',this)">👥 Teams</button>
     </div>
+  </div>
+  <div id="intel-weather-wrap" style="display:none">
+    <div id="weather-stage-btns" style="overflow-x:auto;scrollbar-width:none;margin-bottom:1rem">
+      <div style="display:flex;gap:6px;padding-bottom:4px;min-width:max-content">
+        <button class="ptab" onclick="setWeatherStage(1,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S1</button>
+        <button class="ptab" onclick="setWeatherStage(2,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S2</button>
+        <button class="ptab" onclick="setWeatherStage(3,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S3</button>
+        <button class="ptab" onclick="setWeatherStage(4,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S4</button>
+        <button class="ptab" onclick="setWeatherStage(5,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S5</button>
+        <button class="ptab" onclick="setWeatherStage(6,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S6</button>
+        <button class="ptab" onclick="setWeatherStage(7,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S7</button>
+        <button class="ptab" onclick="setWeatherStage(8,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S8</button>
+        <button class="ptab" onclick="setWeatherStage(9,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S9</button>
+        <button class="ptab" onclick="setWeatherStage(10,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S10</button>
+        <button class="ptab" onclick="setWeatherStage(11,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S11</button>
+        <button class="ptab" onclick="setWeatherStage(12,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S12</button>
+        <button class="ptab" onclick="setWeatherStage(13,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S13</button>
+        <button class="ptab" onclick="setWeatherStage(14,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S14</button>
+        <button class="ptab" onclick="setWeatherStage(15,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S15</button>
+        <button class="ptab" onclick="setWeatherStage(16,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S16</button>
+        <button class="ptab" onclick="setWeatherStage(17,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S17</button>
+        <button class="ptab" onclick="setWeatherStage(18,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S18</button>
+        <button class="ptab" onclick="setWeatherStage(19,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S19</button>
+        <button class="ptab" onclick="setWeatherStage(20,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S20</button>
+        <button class="ptab" onclick="setWeatherStage(21,this)" style="padding:6px 14px;font-size:13px;flex-shrink:0">S21</button>
+      </div>
+    </div>
+    <div id="weather-feed"></div>
   </div>
   <div id="intel-teams-wrap" style="display:none">
     <div id="teams-view"></div>
@@ -2547,6 +2576,73 @@ function elevHtml(n) {
   </div>`;
 }
 
+// ─── WEATHER (Intel tab) ────────────────────────────────────────────────────
+// Anquetil's forecasts come from the vuelta-2026-weather scheduled task, which
+// posts to the append-only /api/messages store with ids of the form
+// vuelta-weather-s{N}-{morning|evening}-{YYYYMMDD}.
+let _weatherMsgs = null;   // cached after first fetch
+let weatherStage = null;   // which stage is selected in the weather view
+
+async function loadWeather() {
+  if (_weatherMsgs !== null) return _weatherMsgs;
+  _weatherMsgs = [];
+  try {
+    const msgs = await apiGet('/api/messages');
+    if (Array.isArray(msgs)) {
+      _weatherMsgs = msgs.filter(m =>
+        m.category === 'weather' || String(m.id || '').startsWith('vuelta-weather-'));
+    }
+  } catch(e) { console.warn('Weather load failed:', e.message); }
+  return _weatherMsgs;
+}
+
+function weatherStageOf(m) {
+  const mm = String(m.id || '').match(/vuelta-weather-s(\d+)-/);
+  return mm ? parseInt(mm[1], 10) : null;
+}
+
+async function renderWeather() {
+  const feed = document.getElementById('weather-feed');
+  if (!feed) return;
+  feed.innerHTML = '<div style="color:#666;font-size:13px;padding:14px">Loading forecasts…</div>';
+  const all = await loadWeather();
+
+  if (weatherStage === null) {
+    const have = [...new Set(all.map(weatherStageOf).filter(Boolean))].sort((a,b)=>a-b);
+    feed.innerHTML = `<div style="color:#666;font-size:13px;padding:14px">
+      Select a stage above to see its forecast.
+      ${have.length ? `<div style="margin-top:8px;color:#555;font-size:12px">Forecasts available: ${have.map(n=>'S'+n).join(', ')}</div>` : ''}
+    </div>`;
+    return;
+  }
+
+  const msgs = all.filter(m => weatherStageOf(m) === weatherStage);
+  if (!msgs.length) {
+    feed.innerHTML = `<div style="color:#666;font-size:13px;padding:14px">No forecast posted for Stage ${weatherStage} yet.</div>`;
+    return;
+  }
+  // Newest first — the task may post both a morning update and an evening preview
+  feed.innerHTML = msgs.slice().sort((a,b) => String(b.ts||'').localeCompare(String(a.ts||''))).map(m => {
+    const d = m.ts ? new Date(m.ts) : null;
+    const when = d ? d.toLocaleString('en-GB', {timeZone:'Europe/London', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false}) : '';
+    const mode = String(m.id||'').includes('-evening-') ? 'Evening preview' : 'Morning update';
+    return `<div class="card" style="border-color:#2a2a2a;background:#161616;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid #2a2a2a">
+        <span style="font-size:11px;font-weight:700;color:#5b8dd9;letter-spacing:.3px">🌤️ ${mode}</span>
+        <span style="font-size:11px;color:#666">${when}</span>
+      </div>
+      <div style="font-size:13.5px;color:#c8c8c8;white-space:pre-line;line-height:1.72">${m.text || ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function setWeatherStage(n, btn) {
+  weatherStage = n;
+  document.querySelectorAll('#weather-stage-btns .ptab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderWeather();
+}
+
 // ─── STAGE INTEL ────────────────────────────────────────────────────────────
 
 // Populates a stage's profile image and metadata on first view (lazy — avoids
@@ -2585,16 +2681,14 @@ function setStageIntel(n, btn) {
 function setIntelFilter(which, btn) {
   document.querySelectorAll('#tab-intel > .ptabs .ptab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  const stagesWrap = document.getElementById('intel-stages-wrap');
-  const teamsWrap  = document.getElementById('intel-teams-wrap');
-  if (which === 'teams') {
-    if (stagesWrap) stagesWrap.style.display = 'none';
-    if (teamsWrap)  teamsWrap.style.display  = 'block';
-    renderTeams();
-  } else {
-    if (teamsWrap)  teamsWrap.style.display  = 'none';
-    if (stagesWrap) stagesWrap.style.display = 'block';
-  }
+  const wraps = {
+    stages:  document.getElementById('intel-stages-wrap'),
+    weather: document.getElementById('intel-weather-wrap'),
+    teams:   document.getElementById('intel-teams-wrap'),
+  };
+  Object.keys(wraps).forEach(k => { if (wraps[k]) wraps[k].style.display = (k === which) ? 'block' : 'none'; });
+  if (which === 'teams')   renderTeams();
+  if (which === 'weather') renderWeather();
 }
 
 function renderIntel() {
