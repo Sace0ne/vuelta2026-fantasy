@@ -1143,7 +1143,7 @@ function namesMatch(entry, result) {
 
 let S = {
   pretour: {}, stages: {}, jokers: {},
-  results: {gc1:'',gc2:'',gc3:'',pts:'',mtn:'',yth:'',lan:'',fre:'',stages:{}},
+  results: {gc1:'',gc2:'',gc3:'',pts:'',mtn:'',yth:'',lan:'',fre:'',stages:{},cancelled:[]},
   scores: {},
   ptPlayer: null, stPlayer: null, myPlayer: null,
 };
@@ -1274,6 +1274,7 @@ function calcScores() {
     if (namesMatch(pk.yth, r.yth) && pk.yth && r.yth) jerseyCorrect++;
     RACE_STAGES.forEach(st => {
       const key = 's' + st.n; const pick = sp[key]; const res = r.stages[key];
+      if (isCancelled(st.n)) return;   // no winner, so nobody scores
       if (!pick || !res || pick === 'DNS') return;
       if (namesMatch(pick, res)) {
         const pts = jk === key ? 2 : 1; tot += pts;
@@ -1600,13 +1601,16 @@ function renderPicks() {
       if (!past) { sh += `<td class="lk">🔒</td>`; }
       else if (isDNS || !pick) { sh += `<td class="dns-cell">DNS</td>`; }
       else if (isSpoilerBlocked(st.n)) { sh += `<td class="spoiler-blocked">🛡️</td>`; }
+      else if (isCancelled(st.n)) { sh += `<td class="pc" style="opacity:.5">${pick}${isJk&&pick?' 🃏':''}</td>`; }
       else { const ok = res && namesMatch(pick, res) && pick; const pts = ok ? (isJk?2:1) : 0; sh += `<td class="${ok?'win-pick':isJk&&pick?'pc jk':'pc'}">${pick||'—'}${isJk&&pick?' 🃏':''}${ok?`<span class="pp">+${pts}</span>`:''}</td>`; }
     });
     // Result column — also spoiler-blocked if applicable
     if (isSpoilerBlocked(st.n)) {
       sh += `<td class="spoiler-blocked">🛡️</td></tr>`;
     } else {
-      sh += `<td style="color:${res?'#e0e0e0':'#555'};font-size:12px">${res||'—'}</td></tr>`;
+      sh += isCancelled(st.n)
+        ? `<td style="color:#c8a020;font-size:11px;font-weight:600">\u26A0 CANCELLED</td></tr>`
+        : `<td style="color:${res?'#e0e0e0':'#555'};font-size:12px">${res||'—'}</td></tr>`;
     }
   });
   sh += '</tbody>'; document.getElementById('picks-stages').innerHTML = sh;
@@ -1645,6 +1649,13 @@ function saveResults() {
 function updRes(key, val) { S.results[key] = val; save(); }
 
 function updResStage(key, val) { S.results.stages[key] = val; save(); }
+
+// A stage that was scheduled but never raced. Kept as its own list rather than
+// a sentinel in results.stages, so the winner field only ever holds rider names.
+function isCancelled(n) {
+  const list = (S.results && S.results.cancelled) || [];
+  return Array.isArray(list) && list.indexOf('s' + n) !== -1;
+}
 
 function tieSort(a, b) {
   const sa = S.scores[a] || {}, sb = S.scores[b] || {};
