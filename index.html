@@ -1393,7 +1393,8 @@ function renderST() {
           <span class="sd">${st.d}</span>
           <span class="sd">${st.dist}</span>
           <span class="st ${tc}">${st.l}</span>
-          ${showHidden ? '<span style="font-size:10px;color:#555">🔒 Hidden until deadline</span>'
+          ${isCancelled(st.n) ? '<span style="font-size:10px;color:#c8a020;font-weight:600">\u26A0 CANCELLED</span>'
+            : showHidden ? '<span style="font-size:10px;color:#555">🔒 Hidden until deadline</span>'
             : locked ? (isDNS ? '<span style="font-size:10px;color:#c05050;font-weight:600">🔒 DNS</span>'
                               : '<span style="font-size:10px;color:#3daa68">🔒 Locked</span>')
                      : '<span style="font-size:10px;color:#555">🔓 Open</span>'}
@@ -1634,11 +1635,21 @@ function renderResults() {
       </div>
       <input type="${f.num?'number':'text'}" id="r-${f.id}" value="${r[f.id]||''}" placeholder="${f.num?'0–21':'Rider name'}" ${f.num?'min="0" max="21"':''} oninput="updRes('${f.id}',this.value)">
     </div>`).join('');
-  document.getElementById('r-stages').innerHTML = RACE_STAGES.map(st => `
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
-      <div style="font-size:11px;color:#888">Stage ${st.n} · ${st.d} · ${st.r.split('→').pop().trim()}</div>
+  document.getElementById('r-stages').innerHTML = RACE_STAGES.map(st => {
+    const head = `<div style="font-size:11px;color:#888">Stage ${st.n} \u00b7 ${st.d} \u00b7 ${st.r.split('\u2192').pop().trim()}</div>`;
+    // A cancelled stage has no winner to enter — show the status instead of an
+    // input, so nobody types a name into a stage that was never raced.
+    if (isCancelled(st.n)) {
+      return `<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+        ${head}
+        <div style="background:#1f1800;border:0.5px solid #3d3000;border-radius:8px;padding:9px 12px;font-size:12px;color:#c8a020;font-weight:600">\u26A0 CANCELLED \u00b7 no winner</div>
+      </div>`;
+    }
+    return `<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+      ${head}
       <input type="text" value="${r.stages['s'+st.n]||''}" placeholder="Stage winner" oninput="updResStage('s${st.n}',this.value)">
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function saveResults() {
